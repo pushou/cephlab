@@ -77,6 +77,23 @@ prometheus                     1/1  45s ago    9d   count:1    docker.io/prom/pr
     objects: 65 objects, 16 MiB
     usage:   8.3 GiB used, 352 GiB / 360 GiB avail
     pgs:     113 active+clean
+# Utilisation de minio comme backend S3
+docker run \                                                                                                                                       ─╯
+  -p 9000:9000 \
+  -p 9001:9001 \
+  -e "MINIO_ROOT_USER=adminadmin" \          
+  -e "MINIO_ROOT_PASSWORD=adminadmin" \                              
+  minio/minio server /data --console-address ":9001"
+
+#
+sudo curl -L https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+$ sudo chmod +x /usr/local/bin/mc
+
+mc alias set monminio http://192.168.1.151:9000/ adminadmin adminadmin
+[ceph: root@cn1 /]# mc ls monminio
+[2021-07-13 13:17:57 UTC]     0B buckyone/
+
+
 
 # création des domaines S3
 
@@ -292,21 +309,22 @@ failed to init zonegroup: (2) No such file or directory
 [ceph: root@cn1 /]# 
 
 [ceph: root@cn1 /]# # déployer la rgw
-[ceph: root@cn1 /]# ceph orch apply rgw $RGW_REALM $RGW_MASTERZONE --placement="1 $RADOSGW"
+ceph orch apply rgw cnrgw1  --realm=$RGW_REALM --zone=$RGW_MASTERZONE --placement="1 cnrgw1"
 Scheduled rgw.demodom.fr-est-1 update...
 [ceph: root@cn1 /]# 
 [ceph: root@cn1 /]# 
-[ceph: root@cn1 /]# ceph orch ls
-NAME                       RUNNING  REFRESHED  AGE  PLACEMENT       IMAGE NAME                            IMAGE ID      
-alertmanager                   1/1  5s ago     3w   count:1         docker.io/prom/alertmanager:v0.20.0   0881eb8f169f  
-crash                          6/6  6m ago     3w   *               docker.io/ceph/ceph:v15               5553b0cb212c  
-grafana                        1/1  5s ago     3w   count:1         docker.io/ceph/ceph-grafana:6.6.2     a0dce381714a  
-mgr                            2/2  5m ago     3w   count:2         docker.io/ceph/ceph:v15               5553b0cb212c  
-mon                            5/5  6m ago     3w   count:5         docker.io/ceph/ceph:v15               5553b0cb212c  
-node-exporter                  6/6  6m ago     3w   *               docker.io/prom/node-exporter:v0.18.1  e5a616e4b9cf  
-osd.all-available-devices      8/8  6m ago     3w   *               docker.io/ceph/ceph:v15               5553b0cb212c  
-prometheus                     1/1  5s ago     3w   count:1         docker.io/prom/prometheus:v2.18.1     de242295e225  
-rgw.demodom.fr-est-1           0/1  -          -    cnrgw1;count:1  <unknown>                             <unknown>     
+
+NAME                       PORTS        RUNNING  REFRESHED  AGE  PLACEMENT       
+alertmanager               ?:9093,9094      1/1  10m ago    1h   count:1         
+crash                                       6/6  10m ago    1h   *               
+grafana                    ?:3000           1/1  10m ago    1h   count:1         
+mds.moncfs                                  2/2  10m ago    5h   count:2         
+mgr                                         2/2  10m ago    1h   count:2         
+mon                                         5/5  10m ago    1h   count:5         
+node-exporter              ?:9100           6/6  10m ago    1h   *               
+osd.all-available-devices                  8/14  10m ago    7h   *               
+prometheus                 ?:9095           1/1  10m ago    1h   count:1         
+rgw.rgw1                   ?:80             0/1  2m ago     2m   cnrgw1;count:1  
 
 # Remarque : initialisation de l'installation de rgw.demodom.fr-est-1
 
