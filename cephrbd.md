@@ -8,19 +8,22 @@ La commande **rbd** vous permet de créer, d’afficher ou de modifier les infor
 Vous pouvez également l'utiliser pour la gestion des snapshots ou des fonctions de clonage des images.
 
 ```
-# création du pool prbd en mode réplication
+# création du pool prbd en mode réplication(Le 16 correspond au nombre de PG = Placement Group)
 [ceph: root@cn1 /]# ceph osd pool create prbd 16          
 pool 'prbd' created
 
 [ceph: root@cn1 /]# ceph osd pool application enable prbd rbd
 enabled application 'rbd' on pool 'prbd'
-# création de l'image
+# création de l'image (bm)
 [ceph: root@cn1 /]# rbd create --size 5G --image-feature layering,exclusive-lock prbd/foo
+# l'image se nomme foo sur le pool prdb
+[ceph: root@cn1 /]# rbd ls prbd 
+foo
 
 [ceph: root@cn1 /]# rbd info prbd/foo
 rbd image 'foo':
 	size 5 GiB in 1280 objects
-	order 22 (4 MiB objects)
+	order 22 (4 MiB objcts)
 	snapshot_count: 0
 	id: 5edc33207a70
 	block_name_prefix: rbd_data.5edc33207a70
@@ -78,6 +81,15 @@ prbdec                  3   32    8 KiB        1  256 KiB      0    166 GiB
 # Remarque : l'espace n'est consommé qu'à l'utilisation.
 # Remarque : on voit la différence d'espace disponible entre la replication x3 et l'erasure code k=2,m=2
 
+[ceph: root@cn1 /]# rados lspools
+device_health_metrics
+prbd
+prbdec
+[ceph: root@cn1 /]# ceph osd lspools
+1 device_health_metrics
+3 prbd
+4 prbdec
+
 # exit container
 [ceph: root@cn1 /]# exit
 exit
@@ -86,10 +98,11 @@ exit
 Il est nécessaire d'installer les binaires de Ceph sur le client ainsi que les fichiers de configuration pour joindre le cluster Ceph.
 ```
 # créé la clé pour le client pour l'acces au pool prbd
-[vagrant@cn1 ~]$ sudo ./cephadm shell ceph auth get-or-create client.prbd mon 'profile rbd' osd 'profile rbd pool=prbd, profile rbd pool=prbdec' > ceph.client.prbd.keyring
-Inferring fsid 2e90db8c-541a-11eb-bb6e-525400ae1f18
-Inferring config /var/lib/ceph/2e90db8c-541a-11eb-bb6e-525400ae1f18/mon.cn1/config
-Using recent ceph image docker.io/ceph/ceph:v15
+[[vagrant@cn1 ~]$ sudo cephadm shell ceph auth get-or-create client.prbd mon 'profile rbd' osd 'profile rbd pool=prbd, profile rbd pool=prbdec' > ceph.client.prbd.keyring
+Inferring fsid 5d6cc7a0-e316-11eb-8cc9-525400bb19d6
+Inferring config /var/lib/ceph/5d6cc7a0-e316-11eb-8cc9-525400bb19d6/mon.cn1/config
+Using recent ceph image docker.io/ceph/ceph@sha256:829ebf54704f2d827de00913b171e5da741aad9b53c1f35ad59251524790eceb
+
 # vérification de la structure du fichier
 [vagrant@cn1 ~]$ cat ./ceph.client.prbd.keyring 
 [client.prbd]
@@ -97,13 +110,13 @@ Using recent ceph image docker.io/ceph/ceph:v15
 
 # remarque: la clé ne doit être accessible qu'à ceph. Dans ce TP on bypass quelques règles de sécurité et d'isolation ;)
 # install repo ceph-octopus
-[vagrant@cn1 ~]$ ssh root@cephclt dnf install centos-release-ceph-octopus.noarch
+[vagrant@cn1 ~]$ ssh root@cephclt dnf -y install centos-release-ceph-octopus.noarch
 The authenticity of host 'cephclt (192.168.0.10)' can't be established.
 RSA key fingerprint is SHA256:wJMZR1dtOjr0FNdEGJ7Lgg9f14+YDIUp+RbCvq3xQwM.
 Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
 Warning: Permanently added 'cephclt,192.168.0.10' (RSA) to the list of known hosts.
 # install du binaire sur le client
-[vagrant@cn1 ~]$ ssh root@cephclt dnf install ceph-common
+[vagrant@cn1 ~]$ ssh root@cephclt dnf -y install ceph-common
 # vérifie ceph.conf
 [vagrant@cn1 ~]$ ls /etc/ceph
 ceph.client.admin.keyring  ceph.conf  ceph.pub
@@ -214,6 +227,32 @@ Filesystem      Size  Used Avail Use% Mounted on
 NAME    SIZE    PARENT  FMT  PROT  LOCK
 foo     10 GiB            2        excl
 foo-ec  10 GiB            2        excl
+
+# faisons un test de "performance"
+[root@cephclt ~]# dd if=/dev/zero of=/mnt/rdb  bs=1G count=1 oflag=direct
+1+0 records in
+1+0 records out
+1073741824 bytes (1.1 GB, 1.0 GiB) copied, 8.3244 s, 129 MB/s
+
+
+# resize d'une image disque
+[ceph: root@cn1 /]# rbd resize --size 6G prbd/foo
+Resizing image: 100% complete...done.
+[ceph: root@cn1 /]# 
+
+[root@cephclt ~]# xfs_growfs /mnt/rbd
+meta-data=/dev/rbd0              isize=512    agcount=8, agsize=163840 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=1, sparse=1, rmapbt=0
+         =                       reflink=1
+data     =                       bsize=4096   blocks=1310720, imaxpct=25
+         =                       sunit=16     swidth=16 blks
+naming   =version 2              bsize=4096   ascii-ci=0, ftype=1
+log      =internal log           bsize=4096   blocks=2560, version=2
+         =                       sectsz=512   sunit=16 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+data blocks changed from 1310720 to 1572864
+
 
 # Démontage des  images
 [root@cephclt ~]# umount /mnt/rbd

@@ -4,84 +4,19 @@ cephadm est un outil pour déployer et gérer un cluster Ceph par connexion aux 
 cephadm est le nouvel outil de gestion d'un cluster Ceph fourni à partir de la version Octopus v15.2.0 et ne prend pas en charge les anciennes versions de Ceph. Il est possible de migrer les anciennes instances vers cephadmin. cephadmin remplace ceph-deploy utilisé dans les anciennes version de Ceph.
 ## Installation du cluster Ceph avec cephadm
 ```
-[vagrant@cn1 ~]$ curl --silent --remote-name --location https://raw.githubusercontent.com/ceph/ceph/octopus/src/cephadm/cephadm
+[vagrant@cn1 ~]$ curl --silent --remote-name --location https://github.com/ceph/ceph/raw/pacific/src/cephadm/cephadm
 [vagrant@cn1 ~]$ chmod +x cephadm
-[vagrant@cn1 ~]$ sudo mkdir -p /etc/ceph
-[vagrant@cn1 ~]$ sudo ./cephadm bootstrap --mon-ip 192.168.0.11
-Verifying podman|docker is present...
-Verifying lvm2 is present...
-Verifying time synchronization is in place...
-Unit chronyd.service is enabled and running
-Repeating the final host check...
-podman|docker (/bin/podman) is present
-systemctl is present
-lvcreate is present
-Unit chronyd.service is enabled and running
-Host looks OK
-Cluster fsid: c9eacd34-513d-11eb-9233-5254009e5678
-Verifying IP 192.168.0.11 port 3300 ...
-Verifying IP 192.168.0.11 port 6789 ...
-Mon IP 192.168.0.11 is in CIDR network 192.168.0.0/24
-Pulling container image docker.io/ceph/ceph:v15...
-Extracting ceph user uid/gid from container image...
-Creating initial keys...
-Creating initial monmap...
-Creating mon...
-Waiting for mon to start...
-Waiting for mon...
-mon is available
-Assimilating anything we can from ceph.conf...
-Generating new minimal ceph.conf...
-Restarting the monitor...
-Setting mon public_network...
-Creating mgr...
-Verifying port 9283 ...
-Wrote keyring to /etc/ceph/ceph.client.admin.keyring
-Wrote config to /etc/ceph/ceph.conf
-Waiting for mgr to start...
-Waiting for mgr...
-mgr not available, waiting (1/10)...
-mgr not available, waiting (2/10)...
-mgr not available, waiting (3/10)...
-mgr not available, waiting (4/10)...
-mgr is available
-Enabling cephadm module...
-Waiting for the mgr to restart...
-Waiting for Mgr epoch 5...
-Mgr epoch 5 is available
-Setting orchestrator backend to cephadm...
-Generating ssh key...
-Wrote public SSH key to to /etc/ceph/ceph.pub
-Adding key to root@localhost's authorized_keys...
-Adding host cn1...
-Deploying mon service with default placement...
-Deploying mgr service with default placement...
-Deploying crash service with default placement...
-Enabling mgr prometheus module...
-Deploying prometheus service with default placement...
-Deploying grafana service with default placement...
-Deploying node-exporter service with default placement...
-Deploying alertmanager service with default placement...
-Enabling the dashboard module...
-Waiting for the mgr to restart...
-Waiting for Mgr epoch 13...
-Mgr epoch 13 is available
-Generating a dashboard self-signed certificate...
-Creating initial admin user...
+[vagrant@cn1 ~]$ sudo ./cephadm add-repo --release pacific
+sudo ./cephadm install
+# Le boostrap créé un daemon monitor qui doit écouter sur une IP celle de la machine.
+[vagrant@cn1 ~]$ sudo cephadm bootstrap --mon-ip 192.168.0.11
+# La .11 est l'IP de l'ethernet 1 de la machine
+
 Fetching dashboard port number...
 Ceph Dashboard is now available at:
+....
+sudo /sbin/cephadm shell --fsid 5d6cc7a0-e316-11eb-8cc9-525400bb19d6 -c /etc/ceph/ceph.conf -k /etc/ceph/ceph.client.admin.keyring
 
-	     URL: https://cn1:8443/
-	    User: admin
-	Password: byxc7x3leo
-
-You can access the Ceph CLI with:
-
-	sudo ./cephadm shell --fsid 2e90db8c-541a-11eb-bb6e-525400ae1f18 -c /etc/ceph/ceph.conf -k /etc/ceph/ceph.client.admin.keyring
-
-Please consider enabling telemetry to help improve Ceph:
-
-	ceph telemetry on
 
 For more information see:
 
@@ -96,14 +31,17 @@ Bootstrap complete.
 [vagrant@cn1 ~]$ for i in {2..4}; do ssh-copy-id -f -i /etc/ceph/ceph.pub root@cn$i; done
 
 # Connexion au cluster ceph
-[vagrant@cn1 ~]$ sudo ./cephadm shell 
+[vagrant@cn1 ~]$ sudo cephadm shell 
 Inferring fsid 2e90db8c-541a-11eb-bb6e-525400ae1f18
 Inferring config /var/lib/ceph/2e90db8c-541a-11eb-bb6e-525400ae1f18/mon.cn1/config
 Using recent ceph image docker.io/ceph/ceph:v15
-
+```
 # Remarque  : on passe dans le conteneur. Attention au changement de shell en [ceph: root@cn1 /]
 
-[ceph: root@cn1 /]#  ceph -s
+
+Quel est le status du cluster ?
+```
+[ceph: root@cn1 /]#  ceph -s  = "ceph status"
   cluster:
     id:     2e90db8c-541a-11eb-bb6e-525400ae1f18
     health: HEALTH_WARN
@@ -119,14 +57,49 @@ Using recent ceph image docker.io/ceph/ceph:v15
     objects: 0 objects, 0 B
     usage:   0 B used, 0 B / 0 B avail
     pgs:  
-    
-# Remarque : Le cluster est en warring au début, car il n'y a pas encore d'osd ou plusieurs mon, mais on va rêgler cela rapidement
+```
 
+Quel est l'état du cluster ?
+
+```
+ceph health detail 
+```
+
+Du process monitor? de l'osd 
+```
+ceph: root@cn1 /]# ceph mon dump
+epoch 1
+fsid 5d6cc7a0-e316-11eb-8cc9-525400bb19d6
+last_changed 2021-07-12T13:40:03.600961+0000
+created 2021-07-12T13:40:03.600961+0000
+min_mon_release 16 (pacific)
+election_strategy: 1
+0: [v2:192.168.0.11:3300/0,v1:192.168.0.11:6789/0] mon.cn1
+dumped monmap epoch 1
+[ceph: root@cn1 /]# 
+```
+Quel est l'espace utilisé par le cluster:
+```
+[ceph: root@cn1 /]# ceph df
+--- RAW STORAGE ---
+CLASS  SIZE  AVAIL  USED  RAW USED  %RAW USED
+TOTAL   0 B    0 B   0 B       0 B          0
+ 
+--- POOLS ---
+POOL  ID  PGS  STORED  OBJECTS  USED  %USED  MAX AVAIL
+[ceph: root@cn1 /]# 
+
+```
+
+
+# Remarque : Le cluster est en warring au début, car il n'y a pas encore d'osd ou plusieurs mon, mais on va rêgler cela rapidement
+```
 [ceph: root@cn1 /]# cat /etc/redhat-release 
 CentOS Linux release 8.3.2011
 # Remarque : l'OS du conteneur est basé sur CentOS Linux release 8.3.2011
 
 # Ajouter les noeudes supplémentaires au cluster Ceph
+for 
 [ceph: root@cn1 /]# ceph orch host add cn2
 Added host 'cn2'
 [ceph: root@cn1 /]# ceph orch host add cn3
@@ -201,6 +174,45 @@ mgr                2/2  64s ago    13m  count:2    docker.io/ceph/ceph:v15      
 mon                3/5  65s ago    13m  count:5    docker.io/ceph/ceph:v15               5553b0cb212c  
 node-exporter      4/4  65s ago    13m  *          docker.io/prom/node-exporter:v0.18.1  e5a616e4b9cf  
 prometheus         1/1  63s ago    13m  count:1    docker.io/prom/prometheus:v2.18.1     de242295e225  
+
+On peut aussi utiliser cephadm
+[vagrant@cn1 ~]$ sudo cephadm shell -- ceph orch host ls
+Inferring fsid 5d6cc7a0-e316-11eb-8cc9-525400bb19d6
+Inferring config /var/lib/ceph/5d6cc7a0-e316-11eb-8cc9-525400bb19d6/mon.cn1/config
+Using recent ceph image docker.io/ceph/ceph@sha256:829ebf54704f2d827de00913b171e5da741aad9b53c1f35ad59251524790eceb
+HOST  ADDR          LABELS  STATUS  
+cn1   192.168.0.11  _admin          
+cn2   192.168.0.12                  
+cn3   192.168.0.13                  
+cn4   192.168.0.14    
+[vagrant@cn1 ~]$ sudo cephadm ls|jq .[].name
+"mon.cn1"
+"mgr.cn1.esnqup"
+"alertmanager.cn1"
+"crash.cn1"
+"grafana.cn1"
+"node-exporter.cn1"
+"prometheus.cn1"
+"osd.3"
+"osd.7"
+
+[vagrant@cn1 ~]$ sudo cephadm shell -- ceph orch device ls
+Inferring fsid 5d6cc7a0-e316-11eb-8cc9-525400bb19d6
+Inferring config /var/lib/ceph/5d6cc7a0-e316-11eb-8cc9-525400bb19d6/mon.cn1/config
+Using recent ceph image docker.io/ceph/ceph@sha256:829ebf54704f2d827de00913b171e5da741aad9b53c1f35ad59251524790eceb
+WARNING: The same type, major and minor should not be used for multiple devices.
+WARNING: The same type, major and minor should not be used for multiple devices.
+Hostname  Path      Type  Serial  Size   Health   Ident  Fault  Available  
+cn1       /dev/vdb  hdd           42.9G  Unknown  N/A    N/A    No         
+cn1       /dev/vdc  hdd           53.6G  Unknown  N/A    N/A    No         
+cn2       /dev/vdb  hdd           42.9G  Unknown  N/A    N/A    No         
+cn2       /dev/vdc  hdd           53.6G  Unknown  N/A    N/A    No         
+cn3       /dev/vdb  hdd           42.9G  Unknown  N/A    N/A    No         
+cn3       /dev/vdc  hdd           53.6G  Unknown  N/A    N/A    No         
+cn4       /dev/vdb  hdd           42.9G  Unknown  N/A    N/A    No         
+cn4       /dev/vdc  hdd           53.6G  Unknown  N/A    N/A    No         
+
+
 
 # le cluster Ceph est toujours en warring, mais il a maintenant 3 moniteurs et 2 mgr
 [ceph: root@cn1 /]# ceph -s
@@ -287,6 +299,7 @@ ID  CLASS  WEIGHT   TYPE NAME      STATUS  REWEIGHT  PRI-AFF
 
 # vérifions le status du cluster. C'est ok, on a bien 8 osds dans le cluster avec 4 nodes.
 [ceph: root@cn1 /]# ceph -s
+# = ceph health status
   cluster:
     id:     2e90db8c-541a-11eb-bb6e-525400ae1f18
     health: HEALTH_OK
@@ -302,6 +315,27 @@ ID  CLASS  WEIGHT   TYPE NAME      STATUS  REWEIGHT  PRI-AFF
     usage:   8.0 GiB used, 352 GiB / 360 GiB avail
     pgs:     1 active+clean
 
+
+
+
+--- RAW STORAGE ---
+CLASS     SIZE    AVAIL    USED  RAW USED  %RAW USED
+hdd    360 GiB  360 GiB  41 MiB    41 MiB       0.01
+TOTAL  360 GiB  360 GiB  41 MiB    41 MiB       0.01
+ 
+--- POOLS ---
+POOL                   ID  PGS  STORED  OBJECTS  USED  %USED  MAX AVAIL
+device_health_metrics   1    1     0 B        0   0 B      0    114 GiB
+
+# On peut relier le stockage à une localisation géographique
+ceph osd crush add-bucket rack1 rack
+ceph osd crush add-bucket rack2 rack
+ceph osd crush add-bucket rack3 rack
+ceph osd crush add-bucket rack4 rack
+ceph osd crush set osd.4 1.0 datacenter=datacenter1 root=default rack=rack4
+
+
+```
 # Remarque : Le cluster est maintenant ok, et prêt pour la configuration des pools
 ```
 ## connexion au dashboard du cluster Ceph

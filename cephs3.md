@@ -206,7 +206,7 @@ failed to init zonegroup: (2) No such file or directory
 }
 
 [ceph: root@cn1 /]# 
-[ceph: root@cn1 /]# # valider les modifications et incrémanter la PERIODE
+[ceph: root@cn1 /]# # valider les modifications et incrémenter la PERIODE
 [ceph: root@cn1 /]# radosgw-admin period update --commit
 {
     "id": "8f0acd3b-6b23-4807-8ae4-543b0957c5ab",

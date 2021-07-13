@@ -15,7 +15,11 @@ Ceph Orchestrator créera et configurera automatiquement MDS (pour MetaData Serv
 ```
 [ceph: root@cn1 /]# ceph fs volume create moncfs   
 ```
-Vérification, on constat un nouveau service mds qui est installé sur 2 node. voir la ligne ```mds: moncfs:1 {0=moncfs.cn4.qziwip=up:active} 1 up:standby```   
+
+Vérification, on constat un nouveau service mds qui est installé sur 2 node. voir la ligne:
+
+ ```mds: moncfs:1 {0=moncfs.cn4.qziwip=up:active} 1 up:standby```
+
 ```
 [ceph: root@cn1 /]# ceph -s
   cluster:
@@ -54,7 +58,7 @@ cephfs.moncfs.data      5   32      0 B        0      0 B      0    111 GiB
 ## Création de la clé keyring d'acces à CephFS
 le systeme client a besion du fichier /etc/ceph.conf et d'un fichier keyring pour le montage du filesystem sous CephFS.
 ```
-[vagrant@cn1 ~]$ sudo ./cephadm shell ceph fs authorize moncfs client.cephclt / rw >ceph.client.cephclt.keyring
+[vagrant@cn1 ~]$ sudo cephadm shell ceph fs authorize moncfs client.cephclt / rw >ceph.client.cephclt.keyring
 Inferring fsid 2e90db8c-541a-11eb-bb6e-525400ae1f18
 Inferring config /var/lib/ceph/2e90db8c-541a-11eb-bb6e-525400ae1f18/mon.cn1/config
 Using recent ceph image docker.io/ceph/ceph:v15
